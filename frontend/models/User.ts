@@ -76,15 +76,10 @@ const userSchema = new mongoose.Schema<IUser>({
   timestamps: true,
 });
 
-// Indexes for performance
-userSchema.index({ email: 1 });
-userSchema.index({ walletAddress: 1 });
+// Additional indexes for performance (unique indexes already defined in schema)
 userSchema.index({ createdAt: 1 });
 userSchema.index({ isActive: 1 });
-
-// Ensure unique email and wallet address constraints
-userSchema.index({ email: 1 }, { unique: true });
-userSchema.index({ walletAddress: 1 }, { unique: true, sparse: true });
+userSchema.index({ lastLoginAt: 1 });
 
 const User = mongoose.models.User || mongoose.model<IUser>('User', userSchema);
 

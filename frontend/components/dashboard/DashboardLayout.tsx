@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { DashboardLogo, LoadingLogo } from "@/components/ui/logo";
+import { Logo, DashboardLogo, LoadingLogo } from "@/components/ui/logo";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -186,7 +186,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   transition={{ duration: 0.2 }}
                   className="mx-auto"
                 >
-                  <DashboardLogo href="/" variant="icon-only" className="hover:opacity-80 transition-opacity" />
+                  <Logo href="/" variant="icon-only" size="md" className="hover:opacity-80 transition-opacity" />
                 </motion.div>
               )}
             </AnimatePresence>

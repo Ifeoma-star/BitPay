@@ -3,6 +3,9 @@ import connectToDatabase from '@/lib/db';
 import { User } from '@/models';
 import { getTokenFromRequest, verifyToken } from '@/lib/auth/auth';
 
+// Force this route to be dynamic (not statically generated)
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     await connectToDatabase();

@@ -84,8 +84,7 @@ const streamSchema = new mongoose.Schema<IStream>({
   timestamps: true,
 });
 
-// Indexes for performance
-streamSchema.index({ streamId: 1 });
+// Indexes for performance (streamId unique index already defined in schema)
 streamSchema.index({ sender: 1 });
 streamSchema.index({ recipient: 1 });
 streamSchema.index({ isActive: 1 });

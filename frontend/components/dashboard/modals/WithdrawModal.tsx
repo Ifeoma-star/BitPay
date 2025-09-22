@@ -25,9 +25,10 @@ interface WithdrawModalProps {
   isOpen: boolean;
   onClose: () => void;
   stream: Stream | null;
+  onSuccess?: () => void;
 }
 
-export function WithdrawModal({ isOpen, onClose, stream }: WithdrawModalProps) {
+export function WithdrawModal({ isOpen, onClose, stream, onSuccess }: WithdrawModalProps) {
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -56,6 +57,7 @@ export function WithdrawModal({ isOpen, onClose, stream }: WithdrawModalProps) {
       toast.success(`Successfully withdrew ${withdrawAmount} sBTC`);
       onClose();
       setWithdrawAmount("");
+      onSuccess?.(); // Call success callback to refresh data
       
       // In real app, refresh stream data
     } catch (error) {

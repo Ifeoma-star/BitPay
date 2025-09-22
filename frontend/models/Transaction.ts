@@ -85,8 +85,7 @@ const transactionSchema = new mongoose.Schema<ITransaction>({
   timestamps: true,
 });
 
-// Indexes for performance
-transactionSchema.index({ txId: 1 });
+// Indexes for performance (txId unique index already defined in schema)
 transactionSchema.index({ streamId: 1 });
 transactionSchema.index({ sender: 1 });
 transactionSchema.index({ recipient: 1 });
