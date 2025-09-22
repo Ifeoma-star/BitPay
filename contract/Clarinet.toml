@@ -7,6 +7,10 @@ cache_dir = './.cache'
 
 [[project.requirements]]
 contract_id = 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-deposit'
+
+[[project.requirements]]
+contract_id = 'ST2F3J1PK46D6XVRBB9SQ66PY89P8G0EBDW5E05M7.bitpay-access-control'
+path = 'contracts/bitpay-access-control.clar'
 [contracts.bitpay-access-control]
 path = 'contracts/bitpay-access-control.clar'
 clarity_version = 3
@@ -17,10 +21,10 @@ epoch = 3.1
 # clarity_version = 3
 # epoch = 3.1
 
-# [contracts.bitpay-core]
-# path = 'contracts/bitpay-core.clar'
-# clarity_version = 3
-# epoch = 3.1
+[contracts.bitpay-core]
+path = 'contracts/bitpay-core.clar'
+clarity_version = 3
+epoch = 3.1
 
 # [contracts.bitpay-emergency]
 # path = 'contracts/bitpay-emergency.clar'

@@ -35,11 +35,19 @@ plan:
       epoch: "3.0"
     - id: 1
       transactions:
+        - requirement-publish:
+            contract-id: ST2F3J1PK46D6XVRBB9SQ66PY89P8G0EBDW5E05M7.bitpay-access-control
+            remap-sender: ST2F3J1PK46D6XVRBB9SQ66PY89P8G0EBDW5E05M7
+            remap-principals:
+              ST2F3J1PK46D6XVRBB9SQ66PY89P8G0EBDW5E05M7: ST2F3J1PK46D6XVRBB9SQ66PY89P8G0EBDW5E05M7
+            cost: 90490
+            path: "./.cache/requirements/ST2F3J1PK46D6XVRBB9SQ66PY89P8G0EBDW5E05M7.bitpay-access-control.clar"
+            clarity-version: 3
         - contract-publish:
-            contract-name: bitpay-access-control
+            contract-name: bitpay-core
             expected-sender: ST2F3J1PK46D6XVRBB9SQ66PY89P8G0EBDW5E05M7
-            cost: 106034
-            path: contracts/bitpay-access-control.clar
+            cost: 266070
+            path: contracts/bitpay-core.clar
             anchor-block-only: true
             clarity-version: 3
       epoch: "3.1"

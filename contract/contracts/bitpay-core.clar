@@ -6,8 +6,8 @@
 ;; IMPORTS & DEPENDENCIES
 ;; =============================================================================
 
-;; Access control reference
-(define-constant ACCESS_CONTROL_CONTRACT .bitpay-access-control)
+;; Access control reference - deployed testnet contract
+(define-constant ACCESS_CONTROL_CONTRACT 'ST2F3J1PK46D6XVRBB9SQ66PY89P8G0EBDW5E05M7.bitpay-access-control)
 
 ;; =============================================================================
 ;; CONSTANTS & ERROR CODES
@@ -115,7 +115,6 @@
     }
 )
 
-
 ;; Contract state variables
 (define-data-var next-stream-id uint u1)
 (define-data-var contract-paused bool false)
@@ -131,22 +130,33 @@
 
 ;; Check if sender has stream management capability
 (define-private (assert-can-manage-streams (sender principal))
-    (asserts!
-        (contract-call? ACCESS_CONTROL_CONTRACT has-capability "manage-streams" sender)
-        ERR_UNAUTHORIZED
+    (begin
+        (asserts!
+            (contract-call? ACCESS_CONTROL_CONTRACT has-capability
+                "manage-streams" sender
+            )
+            ERR_UNAUTHORIZED
+        )
+        (ok true)
     )
 )
 
 ;; Check if contract is not paused
 (define-private (assert-not-paused)
-    (asserts! (not (var-get contract-paused)) ERR_CONTRACT_PAUSED)
+    (begin
+        (asserts! (not (var-get contract-paused)) ERR_CONTRACT_PAUSED)
+        (ok true)
+    )
 )
 
 ;; Check if sender can pause operations
 (define-private (assert-can-pause (sender principal))
-    (asserts!
-        (contract-call? ACCESS_CONTROL_CONTRACT has-capability "pause" sender)
-        ERR_UNAUTHORIZED
+    (begin
+        (asserts!
+            (contract-call? ACCESS_CONTROL_CONTRACT has-capability "pause" sender)
+            ERR_UNAUTHORIZED
+        )
+        (ok true)
     )
 )
 
@@ -162,140 +172,145 @@
         (start-delay-blocks uint)
         (metadata (string-utf8 256))
     )
-    (let (
-            (stream-id (var-get next-stream-id))
-            (sender tx-sender)
-            (current-block block-height)
-            (start-block (+ current-block start-delay-blocks))
-            (end-block (+ start-block duration-blocks))
-            (amount-per-block (/ total-amount duration-blocks))
-            (fee-rate (var-get default-fee-rate))
-            (fee-amount (/ (* total-amount fee-rate) u10000))
-            (net-amount (- total-amount fee-amount))
-            (user-data (default-to {
-                created-streams: (list),
-                receiving-streams: (list),
-                total-created: u0,
-                total-receiving: u0,
-                total-volume-sent: u0,
-                total-volume-received: u0,
-            }
-                (map-get? user-streams sender)
-            ))
-        )
-        ;; Authorization and validation checks
+    (begin
+        ;; Authorization and validation checks first
         (try! (assert-not-paused))
 
-        ;; Validate input parameters
+        ;; Validate input parameters before any calculations
         (asserts! (>= total-amount MIN_STREAM_AMOUNT) ERR_INVALID_AMOUNT)
         (asserts! (<= total-amount MAX_STREAM_AMOUNT) ERR_INVALID_AMOUNT)
         (asserts! (>= duration-blocks MIN_STREAM_DURATION) ERR_INVALID_DURATION)
         (asserts! (<= duration-blocks MAX_STREAM_DURATION) ERR_INVALID_DURATION)
-        (asserts! (> amount-per-block u0) ERR_PAYMENT_TOO_SMALL)
-        (asserts! (not (is-eq sender recipient)) ERR_INVALID_RECIPIENT)
+        (asserts! (not (is-eq tx-sender recipient)) ERR_INVALID_RECIPIENT)
 
-        ;; Check user stream limits
-        (asserts! (< (get total-created user-data) MAX_ACTIVE_STREAMS_PER_USER)
-            ERR_MAX_STREAMS_EXCEEDED
-        )
+        (let (
+                (stream-id (var-get next-stream-id))
+                (sender tx-sender)
+                (current-block stacks-block-height)
+                (start-block (+ current-block start-delay-blocks))
+                (end-block (+ start-block duration-blocks))
+                (amount-per-block (/ total-amount duration-blocks))
+                (fee-rate (var-get default-fee-rate))
+                (fee-amount (/ (* total-amount fee-rate) u10000))
+                (net-amount (- total-amount fee-amount))
+                (user-data (default-to {
+                    created-streams: (list),
+                    receiving-streams: (list),
+                    total-created: u0,
+                    total-receiving: u0,
+                    total-volume-sent: u0,
+                    total-volume-received: u0,
+                }
+                    (map-get? user-streams sender)
+                ))
+            )
+            ;; Additional validation after calculations
+            (asserts! (> amount-per-block u0) ERR_PAYMENT_TOO_SMALL)
 
-        ;; Transfer sBTC to contract (including fees)
-        (try! (contract-call? SBTC_TOKEN transfer total-amount sender
-            (as-contract tx-sender) none
-        ))
+            ;; Check user stream limits
+            (asserts!
+                (< (get total-created user-data) MAX_ACTIVE_STREAMS_PER_USER)
+                ERR_MAX_STREAMS_EXCEEDED
+            )
 
-        ;; Create the stream
-        (map-set streams stream-id {
-            sender: sender,
-            recipient: recipient,
-            total-amount: net-amount,
-            amount-per-block: (/ net-amount duration-blocks),
-            start-block: start-block,
-            end-block: end-block,
-            last-claim-block: start-block,
-            claimed-amount: u0,
-            status: STREAM_ACTIVE,
-            fee-rate: fee-rate,
-            pause-start-block: none,
-            paused-duration: u0,
-            created-at: current-block,
-            metadata: metadata,
-        })
+            ;; Transfer sBTC to contract (including fees)
+            (try! (contract-call? SBTC_TOKEN transfer total-amount sender
+                (as-contract tx-sender) none
+            ))
 
-        ;; Update user tracking
-        (map-set user-streams sender
-            (merge user-data {
-                created-streams: (unwrap!
-                    (as-max-len?
-                        (append (get created-streams user-data) stream-id)
-                        u1000
-                    )
-                    ERR_MAX_STREAMS_EXCEEDED
-                ),
-                total-created: (+ (get total-created user-data) u1),
-                total-volume-sent: (+ (get total-volume-sent user-data) net-amount),
+            ;; Create the stream
+            (map-set streams stream-id {
+                sender: sender,
+                recipient: recipient,
+                total-amount: net-amount,
+                amount-per-block: (/ net-amount duration-blocks),
+                start-block: start-block,
+                end-block: end-block,
+                last-claim-block: start-block,
+                claimed-amount: u0,
+                status: STREAM_ACTIVE,
+                fee-rate: fee-rate,
+                pause-start-block: none,
+                paused-duration: u0,
+                created-at: current-block,
+                metadata: metadata,
             })
-        )
 
-        ;; Update recipient tracking
-        (let ((recipient-data (default-to {
-                created-streams: (list),
-                receiving-streams: (list),
-                total-created: u0,
-                total-receiving: u0,
-                total-volume-sent: u0,
-                total-volume-received: u0,
-            }
-                (map-get? user-streams recipient)
-            )))
-            (map-set user-streams recipient
-                (merge recipient-data {
-                    receiving-streams: (unwrap!
+            ;; Update user tracking
+            (map-set user-streams sender
+                (merge user-data {
+                    created-streams: (unwrap!
                         (as-max-len?
-                            (append (get receiving-streams recipient-data)
-                                stream-id
-                            )
+                            (append (get created-streams user-data) stream-id)
                             u1000
                         )
                         ERR_MAX_STREAMS_EXCEEDED
                     ),
-                    total-receiving: (+ (get total-receiving recipient-data) u1),
-                    total-volume-received: (+ (get total-volume-received recipient-data) net-amount),
+                    total-created: (+ (get total-created user-data) u1),
+                    total-volume-sent: (+ (get total-volume-sent user-data) net-amount),
                 })
             )
+
+            ;; Update recipient tracking
+            (let ((recipient-data (default-to {
+                    created-streams: (list),
+                    receiving-streams: (list),
+                    total-created: u0,
+                    total-receiving: u0,
+                    total-volume-sent: u0,
+                    total-volume-received: u0,
+                }
+                    (map-get? user-streams recipient)
+                )))
+                (map-set user-streams recipient
+                    (merge recipient-data {
+                        receiving-streams: (unwrap!
+                            (as-max-len?
+                                (append (get receiving-streams recipient-data)
+                                    stream-id
+                                )
+                                u1000
+                            )
+                            ERR_MAX_STREAMS_EXCEEDED
+                        ),
+                        total-receiving: (+ (get total-receiving recipient-data) u1),
+                        total-volume-received: (+ (get total-volume-received recipient-data) net-amount),
+                    })
+                )
+            )
+
+            ;; Transfer fees to treasury
+            (if (> fee-amount u0)
+                (try! (as-contract (contract-call? SBTC_TOKEN transfer fee-amount tx-sender
+                    (var-get treasury-address) none
+                )))
+                true
+            )
+
+            ;; Update global stats
+            (var-set next-stream-id (+ stream-id u1))
+            (var-set total-streams-created (+ (var-get total-streams-created) u1))
+            (var-set total-volume (+ (var-get total-volume) net-amount))
+
+            ;; Emit event for chainhook integration
+            (print {
+                event: "stream-created",
+                stream-id: stream-id,
+                sender: sender,
+                recipient: recipient,
+                total-amount: net-amount,
+                amount-per-block: (/ net-amount duration-blocks),
+                duration-blocks: duration-blocks,
+                start-block: start-block,
+                end-block: end-block,
+                fee-amount: fee-amount,
+                metadata: metadata,
+                block-height: current-block,
+                timestamp: stacks-block-height,
+            })
+
+            (ok stream-id)
         )
-
-        ;; Transfer fees to treasury
-        (if (> fee-amount u0)
-            (try! (as-contract (contract-call? SBTC_TOKEN transfer fee-amount tx-sender
-                (var-get treasury-address) none
-            )))
-            true
-        )
-
-        ;; Update global stats
-        (var-set next-stream-id (+ stream-id u1))
-        (var-set total-streams-created (+ (var-get total-streams-created) u1))
-        (var-set total-volume (+ (var-get total-volume) net-amount))
-
-        ;; Emit event for chainhook integration
-        (print {
-            event: "stream-created",
-            stream-id: stream-id,
-            sender: sender,
-            recipient: recipient,
-            total-amount: net-amount,
-            amount-per-block: (/ net-amount duration-blocks),
-            duration-blocks: duration-blocks,
-            start-block: start-block,
-            end-block: end-block,
-            fee-amount: fee-amount,
-            metadata: metadata,
-            block-height: current-block,
-            timestamp: stacks-block-height,
-        })
-
-        (ok stream-id)
     )
 )
 
@@ -304,7 +319,7 @@
     (let (
             (stream-data (unwrap! (map-get? streams stream-id) ERR_INVALID_STREAM_ID))
             (claimer tx-sender)
-            (current-block block-height)
+            (current-block stacks-block-height)
             (claimable-info (calculate-claimable-amount stream-id current-block))
             (claimable-amount (get amount claimable-info))
         )
@@ -361,7 +376,7 @@
     (let (
             (stream-data (unwrap! (map-get? streams stream-id) ERR_INVALID_STREAM_ID))
             (canceller tx-sender)
-            (current-block block-height)
+            (current-block stacks-block-height)
             (claimable-info (calculate-claimable-amount stream-id current-block))
             (claimable-amount (get amount claimable-info))
             (remaining-amount (- (get total-amount stream-data) (get claimed-amount stream-data)
@@ -425,7 +440,7 @@
     (let (
             (stream-data (unwrap! (map-get? streams stream-id) ERR_INVALID_STREAM_ID))
             (pauser tx-sender)
-            (current-block block-height)
+            (current-block stacks-block-height)
         )
         ;; Authorization checks
         (try! (assert-not-paused))
@@ -460,7 +475,7 @@
     (let (
             (stream-data (unwrap! (map-get? streams stream-id) ERR_INVALID_STREAM_ID))
             (resumer tx-sender)
-            (current-block block-height)
+            (current-block stacks-block-height)
             (pause-start (unwrap! (get pause-start-block stream-data) ERR_STREAM_NOT_ACTIVE))
             (pause-duration (- current-block pause-start))
         )
@@ -496,7 +511,6 @@
     )
 )
 
-
 ;; =============================================================================
 ;; CALCULATION FUNCTIONS
 ;; =============================================================================
@@ -504,13 +518,13 @@
 ;; Calculate claimable amount for a stream at a given block
 (define-read-only (calculate-claimable-amount
         (stream-id uint)
-        (at-block uint)
+        (target-block uint)
     )
     (match (map-get? streams stream-id)
         stream-data (let (
-                (current-block (if (is-eq at-block u0)
-                    block-height
-                    at-block
+                (current-block (if (is-eq target-block u0)
+                    stacks-block-height
+                    target-block
                 ))
                 (start-block (get start-block stream-data))
                 (end-block (get end-block stream-data))
@@ -569,7 +583,7 @@
 (define-read-only (calculate-stream-progress (stream-id uint))
     (match (map-get? streams stream-id)
         stream-data (let (
-                (current-block block-height)
+                (current-block stacks-block-height)
                 (start-block (get start-block stream-data))
                 (end-block (get end-block stream-data))
                 (total-duration (- end-block start-block))
@@ -612,7 +626,6 @@
     (map-get? user-streams user)
 )
 
-
 ;; Get global statistics
 (define-read-only (get-global-stats)
     {
@@ -652,7 +665,7 @@
         (print {
             event: "contract-paused",
             paused-by: tx-sender,
-            block-height: block-height,
+            block-height: stacks-block-height,
             timestamp: stacks-block-height,
         })
 
@@ -670,7 +683,7 @@
         (print {
             event: "contract-unpaused",
             unpaused-by: tx-sender,
-            block-height: block-height,
+            block-height: stacks-block-height,
             timestamp: stacks-block-height,
         })
 
@@ -698,7 +711,7 @@
                 old-rate: old-rate,
                 new-rate: new-rate,
                 updated-by: tx-sender,
-                block-height: block-height,
+                block-height: stacks-block-height,
                 timestamp: stacks-block-height,
             })
 
@@ -726,7 +739,7 @@
                 old-treasury: old-treasury,
                 new-treasury: new-treasury,
                 updated-by: tx-sender,
-                block-height: block-height,
+                block-height: stacks-block-height,
                 timestamp: stacks-block-height,
             })
 

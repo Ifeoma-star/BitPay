@@ -79,7 +79,17 @@ plan:
       transactions:
         - emulated-contract-publish:
             contract-name: bitpay-access-control
+            emulated-sender: ST2F3J1PK46D6XVRBB9SQ66PY89P8G0EBDW5E05M7
+            path: "./.cache/requirements/ST2F3J1PK46D6XVRBB9SQ66PY89P8G0EBDW5E05M7.bitpay-access-control.clar"
+            clarity-version: 3
+        - emulated-contract-publish:
+            contract-name: bitpay-access-control
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: contracts/bitpay-access-control.clar
+            clarity-version: 3
+        - emulated-contract-publish:
+            contract-name: bitpay-core
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: contracts/bitpay-core.clar
             clarity-version: 3
       epoch: "3.1"
