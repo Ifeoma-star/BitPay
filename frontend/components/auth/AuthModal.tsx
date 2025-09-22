@@ -175,7 +175,7 @@ export function AuthModal({ isOpen, onClose, type, onSuccess, onAuthSuccess }: A
             <Button
               type="button"
               variant="outline"
-              className="w-full border-2 border-brand-pink text-brand-pink hover:bg-brand-pink hover:text-white transition-colors"
+              className="w-full border-2 border-brand-pink text-muted-foreground hover:bg-brand-pink hover:text-white transition-colors"
               onClick={() => handleWalletAuth(type)}
               disabled={isLoading || isWalletLoading}
             >
