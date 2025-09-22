@@ -160,7 +160,7 @@ export function Footer() {
               </Link>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2024 BitPay. Built on Bitcoin & Stacks.
+              © {new Date().getFullYear()} BitPay. Built on Bitcoin & Stacks.
             </p>
           </div>
         </div>
